@@ -1151,12 +1151,13 @@ p  { font-size: clamp(14px,1.3vw,17px); line-height: 1.7; color: var(--muted); }
 </div><!-- /deck -->
 
 <script>
-const TOTAL = 15;
 let cur = 0, busy = false;
-const slides = document.querySelectorAll('.slide');
+const slides = Array.from(document.querySelectorAll('#deck > .slide'));
+const TOTAL = slides.length;
 const bar    = document.getElementById('progress-bar');
 const dotsEl = document.getElementById('dots');
 
+dotsEl.innerHTML = '';
 for (let i = 0; i < TOTAL; i++) {
   const d = document.createElement('div');
   d.className = 'dot' + (i === 0 ? ' active' : '');
