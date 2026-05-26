@@ -48,6 +48,57 @@ html, body { height: 100%; overflow: hidden;
 #nav-prev { left: 16px; }
 #nav-next { right: 16px; }
 
+/* ── Slide map / table of contents ── */
+.toc-btn {
+  position: fixed; top: 16px; right: 16px;
+  background: rgba(10,10,10,0.82); border: 1px solid var(--border);
+  color: var(--text); border-radius: 999px; padding: 10px 14px;
+  cursor: pointer; z-index: 320; backdrop-filter: blur(12px);
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.4px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.28);
+}
+.toc-btn:hover { border-color: var(--gold); color: var(--gold); background: rgba(201,169,110,0.12); }
+.toc-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.62);
+  backdrop-filter: blur(6px); z-index: 330; opacity: 0; pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+.toc-overlay.open { opacity: 1; pointer-events: all; }
+.toc-panel {
+  position: fixed; top: 68px; right: 16px; width: min(420px, calc(100vw - 32px));
+  max-height: calc(100vh - 96px); overflow-y: auto;
+  background: rgba(10,10,10,0.96); border: 1px solid rgba(201,169,110,0.2);
+  border-radius: 18px; padding: 18px; z-index: 340; box-shadow: 0 24px 64px rgba(0,0,0,0.45);
+  opacity: 0; transform: translateY(-10px) scale(0.98); pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.toc-panel.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: all; }
+.toc-header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom: 14px; }
+.toc-header h3 { font-size: 16px; margin-bottom: 4px; }
+.toc-header p { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.toc-close {
+  width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04); color: var(--muted); cursor: pointer;
+  flex-shrink: 0;
+}
+.toc-close:hover { border-color: var(--gold); color: var(--gold); }
+.toc-list { display:flex; flex-direction:column; gap:10px; }
+.toc-link {
+  display:flex; align-items:center; justify-content:space-between; gap:14px;
+  text-decoration:none; color:inherit; background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 12px 14px;
+  transition: all 0.2s ease;
+}
+.toc-link:hover, .toc-link.active { border-color: rgba(201,169,110,0.45); background: rgba(201,169,110,0.1); }
+.toc-link-text { display:flex; flex-direction:column; gap:2px; }
+.toc-link-kicker { font-size:10px; letter-spacing:1px; text-transform:uppercase; color: var(--dim); }
+.toc-link-title { font-size:13px; font-weight:700; color: var(--text); }
+.toc-link-page {
+  min-width: 54px; text-align:center; border-radius: 999px; padding: 6px 8px;
+  background: rgba(255,255,255,0.05); color: var(--gold); font-size: 11px; font-weight: 700;
+}
+
 /* ── Dots ── */
 #dots {
   position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
@@ -300,9 +351,10 @@ p  { font-size: clamp(14px,1.3vw,17px); line-height: 1.7; color: var(--muted); }
   #nav-prev { left:calc(50% - 56px); }
   #nav-next { right:calc(50% - 56px); }
   #dots { bottom:14px; }
+  .toc-btn { top: 10px; right: 10px; padding: 9px 12px; font-size: 11px; }
+  .toc-panel { top: 56px; right: 10px; width: calc(100vw - 20px); max-height: calc(100vh - 72px); padding: 14px; }
   .slide-header { text-align:left; }
   .slide-header p { margin-left:0; }
-  .cover-meta { flex-direction:column; gap:10px; }
   .im-card { flex-direction:column; gap:10px; }
   .fund-label { width:150px; }
   .cta-link { width:100%; justify-content:center; margin:10px 0 0; }
@@ -358,6 +410,21 @@ p  { font-size: clamp(14px,1.3vw,17px); line-height: 1.7; color: var(--muted); }
 <button class="nav-btn" id="nav-next" onclick="navigate(1)" aria-label="Next">
   <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
 </button>
+<button class="toc-btn" id="toc-btn" type="button" aria-label="Open slide map" aria-expanded="false">
+  <span>☰</span>
+  <span>Slide Map</span>
+</button>
+<div class="toc-overlay" id="toc-overlay"></div>
+<aside class="toc-panel" id="toc-panel" aria-hidden="true">
+  <div class="toc-header">
+    <div>
+      <h3>Table of Contents</h3>
+      <p>Jump straight to the key slides without stepping through the full deck.</p>
+    </div>
+    <button class="toc-close" id="toc-close" type="button" aria-label="Close slide map">✕</button>
+  </div>
+  <div class="toc-list" id="toc-list"></div>
+</aside>
 <div id="dots"></div>
 
 <div id="deck">
@@ -1156,6 +1223,27 @@ const slides = Array.from(document.querySelectorAll('#deck > .slide'));
 const TOTAL = slides.length;
 const bar    = document.getElementById('progress-bar');
 const dotsEl = document.getElementById('dots');
+const tocBtn = document.getElementById('toc-btn');
+const tocOverlay = document.getElementById('toc-overlay');
+const tocPanel = document.getElementById('toc-panel');
+const tocClose = document.getElementById('toc-close');
+const tocList = document.getElementById('toc-list');
+
+const SIGNIFICANT_SLIDES = [
+  { id: 's1', kicker: 'Opening', title: 'Cover' },
+  { id: 's2', kicker: 'Problem', title: 'OEMs Lose Visibility After the First Sale' },
+  { id: 's3', kicker: 'Timing', title: 'Three Converging Forces. One Window.' },
+  { id: 's4', kicker: 'Solution', title: 'The Global Automotive Asset Exchange' },
+  { id: 's5', kicker: 'Product', title: 'Phase 1 Has Launched — in Alpha' },
+  { id: 's6', kicker: 'Market', title: 'Market Opportunity' },
+  { id: 's7', kicker: 'Business Model', title: 'How The Drive Makes Money' },
+  { id: 's9', kicker: 'Traction', title: 'Traction and Validation' },
+  { id: 's10', kicker: 'Roadmap', title: 'Roadmap' },
+  { id: 's11', kicker: 'Team', title: 'Current Team' },
+  { id: 's12', kicker: 'The Ask', title: '$5M Seed Round' },
+  { id: 's13', kicker: 'Strategic Fit', title: 'Why InMotion Ventures' },
+  { id: 's14', kicker: 'Close', title: 'Final CTA' }
+];
 
 dotsEl.innerHTML = '';
 for (let i = 0; i < TOTAL; i++) {
@@ -1170,6 +1258,42 @@ function updateUI() {
   document.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('active', i === cur));
   document.getElementById('nav-prev').style.opacity = cur === 0 ? '0.3' : '1';
   document.getElementById('nav-next').style.opacity = cur === TOTAL - 1 ? '0.3' : '1';
+  document.querySelectorAll('.toc-link').forEach(link => {
+    link.classList.toggle('active', Number(link.dataset.slideIndex) === cur);
+  });
+}
+
+function toggleToc(open) {
+  const isOpen = typeof open === 'boolean' ? open : !tocPanel.classList.contains('open');
+  tocPanel.classList.toggle('open', isOpen);
+  tocOverlay.classList.toggle('open', isOpen);
+  tocPanel.setAttribute('aria-hidden', String(!isOpen));
+  tocBtn.setAttribute('aria-expanded', String(isOpen));
+}
+
+function buildToc() {
+  tocList.innerHTML = '';
+  SIGNIFICANT_SLIDES.forEach(item => {
+    const index = slides.findIndex(slide => slide.id === item.id);
+    if (index === -1) return;
+    const link = document.createElement('a');
+    link.href = '#';
+    link.className = 'toc-link';
+    link.dataset.slideIndex = String(index);
+    link.innerHTML = `
+      <span class="toc-link-text">
+        <span class="toc-link-kicker">${item.kicker}</span>
+        <span class="toc-link-title">${item.title}</span>
+      </span>
+      <span class="toc-link-page">Slide ${index + 1}</span>
+    `;
+    link.addEventListener('click', event => {
+      event.preventDefault();
+      toggleToc(false);
+      goTo(index);
+    });
+    tocList.appendChild(link);
+  });
 }
 
 function goTo(idx) {
@@ -1207,6 +1331,7 @@ function goTo(idx) {
 function navigate(dir) { goTo(cur + dir); }
 
 document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') toggleToc(false);
   if (e.key === 'ArrowRight' || e.key === 'ArrowDown') navigate(1);
   if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   navigate(-1);
 });
@@ -1223,6 +1348,10 @@ document.addEventListener('touchend',   e => {
 slides.forEach((s, i) => {
   if (i !== 0) { s.style.opacity = '0'; s.style.transform = 'translateX(34px)'; }
 });
+buildToc();
+tocBtn.addEventListener('click', () => toggleToc());
+tocOverlay.addEventListener('click', () => toggleToc(false));
+tocClose.addEventListener('click', () => toggleToc(false));
 updateUI();
 </script>
 </body>
