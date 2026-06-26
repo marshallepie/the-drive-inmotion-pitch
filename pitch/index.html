@@ -1218,6 +1218,70 @@ p  { font-size: clamp(14px,1.3vw,17px); line-height: 1.7; color: var(--muted); }
 </div><!-- /deck -->
 
 <script>
+const GA_MEASUREMENT_ID = 'G-XXXXXXXXXX';
+const GA_LINKER_DOMAINS = [
+  'marshallepie.com',
+  'tagmything.com',
+  'jobbuilda.co.uk',
+  'the-path-of-clarity.mixmarshallarts.com',
+  'me-technical-school.netlify.app',
+  'the-drive-web3.netlify.app',
+  'mepie-foundation.org'
+];
+
+window.dataLayer = window.dataLayer || [];
+window.gtag = window.gtag || function gtag(){ window.dataLayer.push(arguments); };
+
+function buildGoogleAnalyticsConfig(pagePath) {
+  return {
+    page_path: pagePath,
+    send_page_view: false,
+    linker: {
+      domains: GA_LINKER_DOMAINS,
+      accept_incoming: true,
+    },
+  };
+}
+
+function initGoogleAnalytics() {
+  if (!GA_MEASUREMENT_ID || GA_MEASUREMENT_ID === 'G-XXXXXXXXXX') {
+    return;
+  }
+
+  if (!document.querySelector(`script[src*="googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}"]`)) {
+    const script = document.createElement('script');
+    script.async = true;
+    script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
+    document.head.appendChild(script);
+  }
+
+  window.gtag('js', new Date());
+  window.gtag('config', GA_MEASUREMENT_ID, buildGoogleAnalyticsConfig(window.location.pathname));
+}
+
+function trackPageView(pagePath) {
+  if (!GA_MEASUREMENT_ID || GA_MEASUREMENT_ID === 'G-XXXXXXXXXX') {
+    return;
+  }
+
+  window.gtag('config', GA_MEASUREMENT_ID, buildGoogleAnalyticsConfig(pagePath));
+}
+
+function trackSlideView() {
+  if (!GA_MEASUREMENT_ID || GA_MEASUREMENT_ID === 'G-XXXXXXXXXX') {
+    return;
+  }
+
+  const slide = slides[cur];
+  const slidePath = `${window.location.pathname}#${slide?.id || `slide-${cur + 1}`}`;
+  trackPageView(slidePath);
+  window.gtag('event', 'pitch_slide_view', {
+    slide_index: cur + 1,
+    slide_id: slide?.id || `slide-${cur + 1}`,
+    slide_title: SIGNIFICANT_SLIDES.find((item) => item.id === slide?.id)?.title || document.title,
+  });
+}
+
 let cur = 0, busy = false;
 const slides = Array.from(document.querySelectorAll('#deck > .slide'));
 const TOTAL = slides.length;
@@ -1325,6 +1389,7 @@ function goTo(idx) {
 
   cur = idx;
   updateUI();
+  trackSlideView();
   setTimeout(() => { busy = false; }, 440);
 }
 
@@ -1349,10 +1414,12 @@ slides.forEach((s, i) => {
   if (i !== 0) { s.style.opacity = '0'; s.style.transform = 'translateX(34px)'; }
 });
 buildToc();
+initGoogleAnalytics();
 tocBtn.addEventListener('click', () => toggleToc());
 tocOverlay.addEventListener('click', () => toggleToc(false));
 tocClose.addEventListener('click', () => toggleToc(false));
 updateUI();
+trackSlideView();
 </script>
 </body>
 </html>
